@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSPB Rank Changer: YasTool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap');
+        
+        body { 
+            background-color: #0b0c15; 
+            font-family: 'Inter', sans-serif; 
+            color: white;
+        }
+        
+        .bg-blueprint {
+            background-image: 
+                linear-gradient(rgba(210, 0, 97, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(210, 0, 97, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 0;
+        }
+
+        canvas { image-rendering: pixelated; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .modal-enter { animation: modalZoom 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes modalZoom {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .btn-shine::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        .btn-shine:hover::before { left: 100%; }
+
+        /* Grid Item Style Updated */
+        .grid-item {
+            position: relative;
+            overflow: hidden;
+        }
+        .grid-item:hover {
+            border-color: #D20061;
+            box-shadow: 0 0 10px rgba(210, 0, 97, 0.3);
+        }
+        .grid-item img {
+            opacity: 0.4;
+            transition: opacity 0.2s;
+        }
+        .grid-item:hover img {
+            opacity: 0.8;
+        }
+        
+        .toggle-active svg { transform: rotate(180deg); }
+    </style>
+</head>
+<body class="h-screen w-full flex items-center justify-center relative overflow-hidden">
+
+    <div class="bg-blueprint pointer-events-none"></div>
+
+    <!-- MAIN CARD -->
+    <div class="relative w-[340px] bg-[#11131f] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10">
+        
+        <!-- HEADER -->
+        <div class="relative px-5 py-4 flex justify-between items-start bg-[#161927]">
+            <div>
+                <h1 class="text-white font-bold text-base tracking-wide">RANK CHANGER</h1>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#D20061] animate-pulse"></span>
+                    <p class="text-[10px] text-gray-400 font-mono tracking-wider">Ubah Icon Rank CSPB Sesukamu!</p>
+                </div>
+            </div>
+            
+            <button onclick="toggleMenu()" class="p-2 bg-[#1c1f2e]/80 hover:bg-[#25293d] rounded-lg border border-white/5 text-gray-400 backdrop-blur-sm shadow-lg transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+        </div>
+
+        <div class="w-full h-[1px] bg-white/5"></div>
+
+        <!-- CONTENT -->
+        <div class="p-6 flex flex-col items-center">
+            
+            <!-- PREVIEW AREA -->
+            <div class="relative mb-6 group">
+                <canvas id="cvs" class="relative w-28 h-28 bg-[#0b0c15] rounded-lg border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] cursor-pointer"></canvas>
+                <!-- Toggle Rank List Button (Main) -->
+                <button id="toggleRank" onclick="toggleRankDrawer('main')" class="absolute -top-2 -right-12 w-9 h-9 flex items-center justify-center bg-[#1c1f2e] hover:bg-[#25293d] rounded-lg border border-white/10 text-[#D20061] shadow-lg transition-all hover:scale-105 active:scale-95">
+                    <svg class="w-5 h-5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+            </div>
+
+            <!-- NAV CONTROLS -->
+            <div class="flex items-center gap-4 mb-1">
+                <button onclick="nav(-1)" class="w-8 h-8 flex items-center justify-center bg-[#1c1f2e] rounded border border-white/10 text-gray-500 hover:text-white transition hover:scale-110">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <h2 id="rankLabel" class="text-xl font-bold text-white tracking-wide">RANK 01</h2>
+                <button onclick="nav(1)" class="w-8 h-8 flex items-center justify-center bg-[#1c1f2e] rounded border border-white/10 text-gray-500 hover:text-white transition hover:scale-110">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+
+            <p class="text-[10px] text-gray-500 font-mono mb-6">Preview Icon Rank</p>
+
+            <!-- MAIN BUTTONS -->
+            <div class="w-full flex flex-col gap-3">
+                <button onclick="openModalStep1()" class="btn-shine w-full bg-[#D20061] hover:bg-[#ff1a8c] active:scale-[0.98] transition-all rounded-lg py-2 px-4 flex flex-col items-center justify-center shadow-lg shadow-[#D20061]/30 relative overflow-hidden group">
+                    <div class="flex items-center gap-2 relative z-10">
+                        <svg class="w-4 h-4 text-white group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <span class="font-bold text-sm">DOWNLOAD HASIL</span>
+                    </div>
+                    <span class="text-[8px] text-white/70 font-mono mt-0.5 relative z-10">com.cspb.m/files/cspb/gfx/billflx/ranks</span>
+                </button>
+
+                <button onclick="document.getElementById('fileIn').click()" class="w-full bg-[#1e293b] hover:bg-[#334155] text-[#D20061] border border-[#D20061]/30 active:scale-[0.98] transition-all rounded-lg py-3 text-sm font-bold shadow-md">
+                    CUSTOM ICON RANK
+                </button>
+                <input type="file" id="fileIn" accept="image/*" class="hidden">
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="bg-[#0d0f1a] py-3 border-t border-white/5 text-center">
+            <p class="text-[9px] text-gray-400">CSPB Rank Changer — <span class="text-gray-300">@yasaaoursea</span></p>
+        </div>
+
+        <!-- MENU DRAWER (Z-Index lower than Rank Drawer) -->
+        <div id="menuDrawer" class="absolute inset-0 bg-[#11131f] z-20 transform translate-x-full transition-transform duration-300 flex flex-col">
+            <div class="px-5 py-4 border-b border-white/10 flex justify-between items-center bg-[#161927]">
+                <h3 class="font-bold text-sm">Menu</h3>
+                <button onclick="toggleMenu()" class="text-gray-400 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 space-y-3">
+                <div class="mb-4">
+                    <p class="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wider">Social Media / Support</p>
+                    <a href="https://youtube.com/@yasaaoursea" target="_blank" class="flex items-center gap-3 p-3 bg-[#1c1f2e] rounded-lg border border-white/10 hover:text-white text-gray-300 transition hover:translate-x-1">
+                        <div class="w-8 h-8 bg-[#D20061]/20 rounded-lg flex items-center justify-center"><svg class="w-4 h-4 text-[#D20061]" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></div>
+                        <div class="flex-1"><p class="text-sm font-semibold">YouTube</p><p class="text-xs text-gray-500">@yasaaoursea</p></div>
+                    </a>
+                    <a href="https://sociabuzz.com/yasaaoursea/support" target="_blank" class="flex items-center gap-3 p-3 bg-[#1c1f2e] rounded-lg border border-white/10 hover:text-white text-gray-300 mt-2 transition hover:translate-x-1">
+                        <div class="w-8 h-8 bg-[#D20061]/20 rounded-lg flex items-center justify-center"><svg class="w-4 h-4 text-[#D20061]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657-2.692-4.232-2.349-5.656-.935C5.007 8.397 5 10.5 6 12.556c1 2.056 6 7.444 6 7.444s5-5.388 6-7.444c1-2.056.993-4.159-.344-5.49C16.232 5.651 13.657 5.308 12 8z"/></svg></div>
+                        <div class="flex-1"><p class="text-sm font-semibold">SocialBuzz</p><p class="text-xs text-gray-500">Support Creator</p></div>
+                    </a>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wider">CSPB Tools</p>
+                    <a href="https://cspb-packer-tool.vercel.app" target="_blank" class="flex items-center gap-3 p-3 bg-[#1c1f2e] rounded-lg border border-white/10 hover:text-white text-gray-300 transition hover:translate-x-1">
+                        <div class="w-8 h-8 bg-[#D20061]/20 rounded-lg flex items-center justify-center"><svg class="w-4 h-4 text-[#D20061]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>
+                        <div class="flex-1"><p class="text-sm font-semibold">CSPB Packer</p><p class="text-xs text-gray-500">Packer Tool</p></div>
+                    </a>
+                    <a href="https://yas-conveting.vercel.app" target="_blank" class="flex items-center gap-3 p-3 bg-[#1c1f2e] rounded-lg border border-white/10 hover:text-white text-gray-300 mt-2 transition hover:translate-x-1">
+                        <div class="w-8 h-8 bg-[#D20061]/20 rounded-lg flex items-center justify-center"><svg class="w-4 h-4 text-[#D20061]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></div>
+                        <div class="flex-1"><p class="text-sm font-semibold">Converter</p><p class="text-xs text-gray-500">File Converter</p></div>
+                    </a>
+                </div>
+            </div>
+            <div class="p-4 border-t border-white/5 bg-[#0b0c15] flex justify-start sticky bottom-0">
+                <button id="btnDefault" onclick="downloadDefaultRank()" class="w-1/2 flex items-center justify-center gap-2 py-2 bg-[#1c1f2e] hover:bg-[#25293d] border border-white/5 rounded-lg text-[10px] text-gray-500 hover:text-white transition-all">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <span>Download Rank Default</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- === RANK SELECTOR DRAWER (SUPER Z-INDEX) === -->
+    <!-- Z-Index 60 agar muncul di atas Modal (Z-50) -->
+    <div id="rankDrawer" class="absolute inset-0 bg-[#11131f] z-[60] transform translate-y-full transition-transform duration-300 flex flex-col">
+        <div class="px-5 py-4 border-b border-white/10 flex justify-between items-center bg-[#161927]">
+            <h3 class="font-bold text-sm" id="drawerTitle">Pilih Rank</h3>
+            <button onclick="toggleRankDrawer()" class="text-gray-400 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        <div id="gridContent" class="flex-1 overflow-y-auto p-4 grid grid-cols-5 gap-3 hide-scroll"></div>
+    </div>
+
+    <!-- === MODAL SYSTEM === -->
+    <div id="modalOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        
+        <!-- STEP 1: CHOICE -->
+        <div id="modalStep1" class="w-[90%] max-w-[400px] bg-[#11131f] rounded-2xl border border-white/10 p-6 shadow-2xl transform transition-transform duration-300 hidden modal-enter">
+            <div class="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+                <h3 class="text-md font-bold text-white tracking-wide">PILIH MODE DOWNLOAD</h3>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-white transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            
+            <div class="space-y-3">
+                <!-- Option A -->
+                <button onclick="downloadMass()" class="w-full p-4 bg-[#1c1f2e] hover:bg-[#25293d] border border-white/10 hover:border-[#D20061]/50 rounded-xl flex items-center gap-4 group transition-all">
+                    <div class="w-12 h-12 rounded-xl bg-[#0b0c15] border border-white/5 flex items-center justify-center text-[#D20061] group-hover:scale-110 transition-transform shadow-lg">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    </div>
+                    <div class="text-left">
+                        <h4 class="font-bold text-white">Ganti Semua Rank</h4>
+                        <p class="text-xs text-gray-500">Semua Player ranknya sama, seperti yang anda pilih </p>
+                    </div>
+                </button>
+
+                <!-- Option B -->
+                <button onclick="openModalStep2()" class="w-full p-4 bg-[#1c1f2e] hover:bg-[#25293d] border border-white/10 hover:border-[#D20061]/50 rounded-xl flex items-center gap-4 group transition-all">
+                    <div class="w-12 h-12 rounded-xl bg-[#0b0c15] border border-white/5 flex items-center justify-center text-[#D20061] group-hover:scale-110 transition-transform shadow-lg">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    </div>
+                    <div class="text-left">
+                        <h4 class="font-bold text-white">Ganti Rank anda Saat Ini</h4>
+                        <p class="text-xs text-gray-500">Hanya Rank anda yang berubah</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 2: TARGET SELECTOR (Larger) -->
+        <div id="modalStep2" class="w-[90%] max-w-[400px] bg-[#11131f] rounded-2xl border border-white/10 p-6 shadow-2xl transform transition-transform duration-300 hidden modal-enter">
+            <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-4">
+                <button onclick="backToStep1()" class="text-gray-500 hover:text-white text-xs flex items-center gap-1 transition">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> KEMBALI
+                </button>
+                <h3 class="text-md font-bold text-white tracking-wide">TARGET RANK</h3>
+            </div>
+
+            <!-- Visualization -->
+            <div class="bg-[#0b0c15] p-6 rounded-xl border border-white/5 flex items-center justify-between gap-2 mb-6 shadow-inner">
+                <div class="flex flex-col items-center gap-2">
+                    <span class="text-[9px] text-[#D20061] font-bold">CUSTOM</span>
+                    <canvas id="miniCvs" width="56" height="56" class="bg-[#1c1f2e] rounded-lg border border-white/10 shadow-lg"></canvas>
+                </div>
+                
+                <div class="flex flex-col items-center">
+                    <svg class="w-6 h-6 text-gray-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                </div>
+
+                <div class="flex flex-col items-center gap-2">
+                    <span class="text-[9px] text-gray-500 font-bold">REPLACE TO</span>
+                    <!-- IMPROVEMENT 3: Opacity Removed (Fully Visible) -->
+                    <img id="targetPreview" src="" class="w-14 h-14 bg-[#1c1f2e] rounded-lg border border-white/10 object-contain p-1 shadow-lg">
+                </div>
+            </div>
+
+            <!-- Selector with Clickable Number -->
+            <div class="flex items-center justify-center gap-4 mb-6">
+                <button onclick="changeTargetRank(-1)" class="w-10 h-10 rounded-xl bg-[#1c1f2e] hover:bg-[#333] border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                
+                <!-- IMPROVEMENT 2: Clickable Number triggers Drawer -->
+                <button onclick="toggleRankDrawer('target')" class="text-center w-20 py-2 hover:bg-[#1c1f2e] rounded-lg border border-transparent hover:border-white/10 transition group" title="Klik untuk pilih rank">
+                    <div id="targetRankNum" class="text-3xl font-bold text-white font-mono group-hover:text-[#D20061] transition-colors">01</div>
+                    <div class="text-[9px] text-gray-500 mt-1">TAP TO CHANGE</div>
+                </button>
+
+                <button onclick="changeTargetRank(1)" class="w-10 h-10 rounded-xl bg-[#1c1f2e] hover:bg-[#333] border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+
+            <button id="btnMixedDownload" onclick="downloadMixedPack()" class="w-full py-4 bg-[#D20061] hover:bg-[#ff1a8c] rounded-xl text-white font-bold text-sm shadow-lg shadow-[#D20061]/30 transition-all active:scale-95">
+                DOWNLOAD
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        const PATH = "com.cspb.m/files/cspb/gfx/billflx/ranks";
+        const MAX_RANK = 54;
+        const TARGET_SIZE = 64;
+
+        let currentRankId = 1;
+        let targetRankId = 1;
+        let drawerMode = 'main'; // 'main' or 'target'
+
+        const cvs = document.getElementById('cvs');
+        const ctx = cvs.getContext('2d');
+        const rankLabel = document.getElementById('rankLabel');
+        const fileInput = document.getElementById('fileIn');
+        const gridBox = document.getElementById('gridContent');
+
+        function createRipple(button, event) {
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+            const rect = button.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = event.clientX - rect.left - size / 2;
+            const y = event.clientY - rect.top - size / 2;
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            button.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        }
+
+        function init() {
+            cvs.width = TARGET_SIZE;
+            cvs.height = TARGET_SIZE;
+            gridBox.innerHTML = '';
+            
+            // IMPROVEMENT 1: Grid items have Image AND Number
+            for(let i=1; i<=MAX_RANK; i++) {
+                const btn = document.createElement('button');
+                btn.className = `grid-item aspect-square rounded border border-white/10 flex flex-col items-center justify-center transition bg-[#1c1f2e] text-gray-400 hover:text-white relative`;
+                
+                // Add Image Background
+                const img = document.createElement('img');
+                img.src = `assets/${i}.png`;
+                img.className = "absolute inset-0 w-full h-full object-contain p-2";
+                
+                // Add Number Overlay
+                const span = document.createElement('span');
+                span.innerText = i;
+                span.className = "relative z-10 text-xs font-bold drop-shadow-md bg-black/40 px-1 rounded";
+
+                btn.appendChild(img);
+                btn.appendChild(span);
+
+                // Handle click based on Drawer Mode
+                btn.onclick = (e) => { 
+                    createRipple(btn, e);
+                    
+                    if(drawerMode === 'main') {
+                        loadAsset(i); 
+                    } else {
+                        targetRankId = i;
+                        updateTargetDisplay();
+                    }
+                    
+                    setTimeout(() => toggleRankDrawer(), 150);
+                };
+                gridBox.appendChild(btn);
+            }
+            loadAsset(1);
+            document.getElementById('btnDefault').addEventListener('click', function(e) { createRipple(this, e); });
+        }
+
+        function loadAsset(id) {
+            currentRankId = id;
+            rankLabel.innerText = `RANK ${String(id).padStart(2,'0')}`;
+            rankLabel.className = "text-xl font-bold text-white tracking-wide";
+            ctx.clearRect(0,0,TARGET_SIZE,TARGET_SIZE);
+            const img = new Image();
+            img.onload = () => { ctx.drawImage(img, 0, 0, TARGET_SIZE, TARGET_SIZE); };
+            img.onerror = () => {
+                ctx.fillStyle="#0f111a"; ctx.fillRect(0,0,TARGET_SIZE,TARGET_SIZE);
+                ctx.fillStyle="#D20061"; ctx.font="bold 20px sans-serif"; 
+                ctx.textAlign="center"; ctx.textBaseline="middle"; 
+                ctx.fillText(id, TARGET_SIZE/2, TARGET_SIZE/2);
+            };
+            img.src = `assets/${id}.png`;
+        }
+
+        function nav(dir) {
+            let next = currentRankId + dir;
+            if(next < 1) next = MAX_RANK;
+            if(next > MAX_RANK) next = 1;
+            loadAsset(next);
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+                    ctx.drawImage(img, 0, 0, TARGET_SIZE, TARGET_SIZE);
+                    rankLabel.innerText = "CUSTOM IMAGE";
+                    rankLabel.className = "text-xl font-bold tracking-wide";
+                    rankLabel.style.color = "#D20061";
+                }
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // === MODAL LOGIC ===
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalStep1 = document.getElementById('modalStep1');
+        const modalStep2 = document.getElementById('modalStep2');
+
+        function openModalStep1() {
+            modalOverlay.classList.remove('hidden');
+            setTimeout(() => modalOverlay.classList.remove('opacity-0'), 10);
+            modalStep1.classList.remove('hidden');
+            modalStep2.classList.add('hidden');
+        }
+
+        function openModalStep2() {
+            modalStep1.classList.add('hidden');
+            modalStep2.classList.remove('hidden');
+            targetRankId = 1; 
+            updateTargetDisplay();
+            const miniCtx = document.getElementById('miniCvs').getContext('2d');
+            miniCtx.clearRect(0,0,56,56);
+            miniCtx.drawImage(cvs, 0, 0, 56, 56);
+        }
+
+        function backToStep1() {
+            modalStep2.classList.add('hidden');
+            modalStep1.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            modalOverlay.classList.add('opacity-0');
+            setTimeout(() => { modalOverlay.classList.add('hidden'); }, 300);
+        }
+
+        function changeTargetRank(dir) {
+            targetRankId += dir;
+            if(targetRankId < 1) targetRankId = MAX_RANK;
+            if(targetRankId > MAX_RANK) targetRankId = 1;
+            updateTargetDisplay();
+        }
+
+        function updateTargetDisplay() {
+            document.getElementById('targetRankNum').innerText = String(targetRankId).padStart(2, '0');
+            document.getElementById('targetPreview').src = `assets/${targetRankId}.png`;
+        }
+
+        // === DOWNLOAD LOGIC ===
+        function downloadMass() {
+            const zip = new JSZip();
+            const tgaData = getTgaData(ctx, TARGET_SIZE, TARGET_SIZE);
+            const tgaBlob = new Blob([tgaData], {type: "application/octet-stream"});
+            let folder = zip;
+            PATH.split('/').forEach(p => folder = folder.folder(p));
+            for(let i = 1; i <= MAX_RANK; i++) {
+                folder.file(`${i}.tga`, tgaBlob);
+            }
+            zip.generateAsync({type:"blob"}).then(content => {
+                saveAs(content, "CSPB_Mass_Override.zip");
+                closeModal();
+            });
+        }
+
+        async function downloadMixedPack() {
+            const btn = document.getElementById('btnMixedDownload');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<span class="animate-pulse">Generating...</span>`;
+            
+            const zip = new JSZip();
+            let folder = zip;
+            PATH.split('/').forEach(p => folder = folder.folder(p));
+            const customTgaData = getTgaData(ctx, TARGET_SIZE, TARGET_SIZE);
+            const customBlob = new Blob([customTgaData], {type: "application/octet-stream"});
+            const promises = [];
+
+            for (let i = 1; i <= MAX_RANK; i++) {
+                if(i === targetRankId) {
+                    folder.file(`${i}.tga`, customBlob);
+                    continue; 
+                }
+                const p = new Promise((resolve) => {
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous";
+                    img.src = `assets/${i}.png`;
+                    img.onload = () => {
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = TARGET_SIZE; tempCanvas.height = TARGET_SIZE;
+                        const tCtx = tempCanvas.getContext('2d');
+                        tCtx.drawImage(img, 0, 0, TARGET_SIZE, TARGET_SIZE);
+                        const tgaData = getTgaData(tCtx, TARGET_SIZE, TARGET_SIZE);
+                        folder.file(`${i}.tga`, new Blob([tgaData], {type: "application/octet-stream"}));
+                        resolve();
+                    };
+                    img.onerror = () => { resolve(); }
+                });
+                promises.push(p);
+            }
+            await Promise.all(promises);
+            zip.generateAsync({type:"blob"}).then(content => {
+                saveAs(content, `CSPB_Rank_${targetRankId}_Custom.zip`);
+                btn.innerHTML = originalText;
+                closeModal();
+            });
+        }
+
+        async function downloadDefaultRank() {
+            const btn = document.getElementById('btnDefault');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
+            const zip = new JSZip();
+            let folder = zip;
+            PATH.split('/').forEach(p => folder = folder.folder(p));
+            const promises = [];
+            for (let i = 1; i <= MAX_RANK; i++) {
+                const p = new Promise((resolve) => {
+                    const img = new Image();
+                    img.src = `assets/${i}.png`;
+                    img.onload = () => {
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = TARGET_SIZE; tempCanvas.height = TARGET_SIZE;
+                        const tCtx = tempCanvas.getContext('2d');
+                        tCtx.drawImage(img, 0, 0, TARGET_SIZE, TARGET_SIZE);
+                        const tgaData = getTgaData(tCtx, TARGET_SIZE, TARGET_SIZE);
+                        folder.file(`${i}.tga`, new Blob([tgaData], {type: "application/octet-stream"}));
+                        resolve();
+                    };
+                    img.onerror = () => { resolve(); }
+                });
+                promises.push(p);
+            }
+            await Promise.all(promises);
+            zip.generateAsync({type:"blob"}).then(content => {
+                saveAs(content, "CSPB_Original_Default_Ranks.zip");
+                btn.innerHTML = originalText;
+                toggleMenu();
+            });
+        }
+
+        function getTgaData(context, width, height) {
+            const buffer = new ArrayBuffer(18 + (width * height * 4));
+            const view = new DataView(buffer);
+            const data = context.getImageData(0, 0, width, height).data;
+            view.setUint8(2, 2); view.setUint16(12, width, true); view.setUint16(14, height, true);
+            view.setUint8(16, 32); view.setUint8(17, 8); 
+            let offset = 18;
+            for(let y = height - 1; y >= 0; y--) { 
+                for(let x = 0; x < width; x++) {
+                    let idx = (y * width + x) * 4;
+                    view.setUint8(offset++, data[idx+2]); view.setUint8(offset++, data[idx+1]); 
+                    view.setUint8(offset++, data[idx]);   view.setUint8(offset++, data[idx+3]); 
+                }
+            }
+            return buffer;
+        }
+
+        // Toggle Drawer with Mode Support (main/target)
+        function toggleRankDrawer(mode) {
+            const drawer = document.getElementById('rankDrawer');
+            const toggle = document.getElementById('toggleRank');
+            const menuDrawer = document.getElementById('menuDrawer');
+            
+            // Set Mode
+            if(mode) drawerMode = mode;
+            
+            // Close other drawers
+            menuDrawer.classList.add('translate-x-full');
+            
+            // Toggle Logic
+            drawer.classList.toggle('translate-y-full');
+            
+            // Visual Updates based on Mode
+            const drawerTitle = document.getElementById('drawerTitle');
+            if(drawerMode === 'target') {
+                drawerTitle.innerText = "Pilih Target Rank";
+                drawerTitle.classList.add('text-[#D20061]');
+            } else {
+                drawerTitle.innerText = "Pilih Rank";
+                drawerTitle.classList.remove('text-[#D20061]');
+                toggle.classList.toggle('toggle-active');
+            }
+        }
+
+        function toggleMenu() {
+            const drawer = document.getElementById('menuDrawer');
+            const rankDrawer = document.getElementById('rankDrawer');
+            rankDrawer.classList.add('translate-y-full');
+            document.getElementById('toggleRank').classList.remove('toggle-active');
+            drawer.classList.toggle('translate-x-full');
+        }
+
+        init();
+    </script>
+</body>
+</html>
